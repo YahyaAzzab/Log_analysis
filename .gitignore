@@ -7,5 +7,6 @@ __pycache__/
 
 log_analysis/logs/*.log
 log_analysis/storage/country_cache.json
+log_analysis/storage/ipinfo_cache.json
 log_analysis/storage/evenements.csv
 log_analysis/data/
