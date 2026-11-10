@@ -1,0 +1,1 @@
+"""Graphiques matplotlib du dashboard."""
