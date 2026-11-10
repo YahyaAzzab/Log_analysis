@@ -27,3 +27,5 @@ Les images sont écrites dans `log_analysis/reports/`. Le détail est dans `log_
 C'est le travail que j'avais commencé avant de voir le message du professeur. Je suis nouveau dans l'établissement, je n'avais pas les consignes en même temps que les autres. Cette version va plus loin : une API, un site, PostgreSQL et une géolocalisation. Quand le projet web a été évoqué, ce n'était pas ce qui était demandé.
 
 Je la laisse ici pour montrer le travail déjà fait. Je ne l'ai pas réécrite. Elle a seulement été déplacée dans ce dossier. Ce n'est pas la version à noter. La version qui suit les consignes est `log_analysis`.
+
+La consigne dit : tout push dans git après le mardi 10, projet non validé. Je pousse donc ce dépôt le mardi 10. J'avais mal compris le sujet au début, mais je respecte cette date.
