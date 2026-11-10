@@ -1,1 +1,3 @@
 matplotlib
+ipinfo
+psycopg2-binary
