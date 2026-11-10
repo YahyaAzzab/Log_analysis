@@ -198,6 +198,21 @@
   opacity: 0;
 }
 
+.app.is-visible .sidebar__logo {
+  opacity: 1;
+}
+
+.drawer__list a,
+.data-table a {
+  color: var(--strix-accent);
+  text-decoration: none;
+}
+
+.drawer__list a:hover,
+.data-table a:hover {
+  text-decoration: underline;
+}
+
 .sidebar__brand-text {
   display: flex;
   flex-direction: column;
