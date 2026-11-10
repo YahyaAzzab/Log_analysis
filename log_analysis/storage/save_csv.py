@@ -21,6 +21,7 @@ _COLUMNS = [
     "invalid_user",
     "port",
     "country",
+    "is_bot",
     "source_file",
 ]
 
@@ -43,6 +44,7 @@ def save_events(events: Iterable[AuthEvent]) -> Path:
                         "invalid_user": event.invalid_user,
                         "port": "" if event.port is None else event.port,
                         "country": event.country,
+                        "is_bot": event.is_bot,
                         "source_file": event.source_file,
                     }
                 )
