@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 280 64" role="img" aria-label="STRIX">
+  <title>STRIX - Authentication Threat Intelligence</title>
+  <desc>Geometric owl mark with shield-shaped eyes and STRIX wordmark</desc>
+
+  <defs>
+    <!-- Icon-only mark, designed to stay legible at 24px -->
+    <symbol id="strix-mark" viewBox="0 0 64 64">
+      <!-- Dark disc background for contrast on any surface -->
+      <circle cx="32" cy="32" r="30" fill="#0B0F1A"/>
+      <circle cx="32" cy="32" r="29" stroke="#22D3EE" stroke-width="2" opacity="0.35"/>
+
+      <!-- Owl head: truncated diamond / hexagon silhouette -->
+      <path
+        d="M32 8 L48 18 L48 36 L32 52 L16 36 L16 18 Z"
+        fill="#121826"
+        stroke="#22D3EE"
+        stroke-width="2.25"
+        stroke-linejoin="round"
+      />
+
+      <!-- Ear tufts -->
+      <path d="M18 16 L14 6 L24 14 Z" fill="#22D3EE"/>
+      <path d="M46 16 L50 6 L40 14 Z" fill="#22D3EE"/>
+
+      <!-- Shield eyes: heater-shield geometry -->
+      <path
+        d="M23 22 L29 22 L29 30 C29 33.5 26.5 36 23 37.5 C19.5 36 17 33.5 17 30 L17 22 Z"
+        fill="#0B0F1A"
+        stroke="#22D3EE"
+        stroke-width="2"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M41 22 L47 22 L47 30 C47 33.5 44.5 36 41 37.5 C37.5 36 35 33.5 35 30 L35 22 Z"
+        fill="#0B0F1A"
+        stroke="#22D3EE"
+        stroke-width="2"
+        stroke-linejoin="round"
+      />
+      <!-- Eye pupils as vertical shield slits -->
+      <rect x="21.5" y="25" width="3" height="7" rx="1" fill="#22D3EE"/>
+      <rect x="39.5" y="25" width="3" height="7" rx="1" fill="#22D3EE"/>
+
+      <!-- Beak -->
+      <path d="M32 34 L36 40 L32 44 L28 40 Z" fill="#22D3EE"/>
+    </symbol>
+
+    <!-- Full logo: mark + wordmark -->
+    <symbol id="strix-logo" viewBox="0 0 280 64">
+      <use href="#strix-mark" x="0" y="0" width="64" height="64"/>
+      <text
+        x="80"
+        y="42"
+        fill="#E5E7EB"
+        font-family="Inter, ui-sans-serif, system-ui, sans-serif"
+        font-size="34"
+        font-weight="700"
+        letter-spacing="0.18em"
+      >STRIX</text>
+      <text
+        x="82"
+        y="58"
+        fill="#9CA3AF"
+        font-family="Inter, ui-sans-serif, system-ui, sans-serif"
+        font-size="9"
+        font-weight="500"
+        letter-spacing="0.22em"
+      >AUTHENTICATION THREAT INTELLIGENCE</text>
+    </symbol>
+  </defs>
+
+  <!-- Default render: full wordmark logo -->
+  <use href="#strix-logo" width="280" height="64"/>
+</svg>
