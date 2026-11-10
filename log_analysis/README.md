@@ -13,6 +13,8 @@ pip install -r requirements.txt
 python main.py
 ```
 
+`python main.py` ouvre une fenêtre avec les trois graphiques ensemble. Il faut la fermer pour que le programme se termine. Les mêmes images sont aussi enregistrées dans `reports/`.
+
 Les journaux sont cherchés dans `data/`. S'il est vide, le programme prend ceux de `../log_analysis_version_avancee/data/`. On peut aussi donner le dossier :
 
 ```bash
