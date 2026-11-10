@@ -13,7 +13,9 @@ pip install -r requirements.txt
 python main.py
 ```
 
-`python main.py` ouvre une fenêtre avec les trois graphiques ensemble. Il faut la fermer pour que le programme se termine. Les mêmes images sont aussi enregistrées dans `reports/`.
+`python main.py` ouvre une fenêtre avec les graphiques. Il faut la fermer pour que le programme se termine. Les images sont aussi dans `reports/`.
+
+Le programme repère les bots (5 échecs en 30 secondes). Les IP malveillantes sont localisées avec ipinfo, puis tout est enregistré dans PostgreSQL (`cours_events` et `cours_ip_intel`). Il faut un fichier `.env` avec `IPINFO_TOKEN` et `DATABASE_URL`. S'il n'est pas dans ce dossier, celui de `log_analysis_version_avancee` est utilisé.
 
 Les journaux sont cherchés dans `data/`. S'il est vide, le programme prend ceux de `../log_analysis_version_avancee/data/`. On peut aussi donner le dossier :
 
