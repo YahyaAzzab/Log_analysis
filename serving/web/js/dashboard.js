@@ -1,5 +1,5 @@
 /**
- * STRIX Failed logins dashboard: filters, API sync, ECharts views.
+ * STRIX Failed logins dashboard: filters, API sync, ECharts, UX polish.
  */
 (function () {
   "use strict";
@@ -7,6 +7,12 @@
   var PAGE_SIZE = 10;
   var DEBOUNCE_MS = 280;
   var DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var ANIM_MS = 450;
+  var ANIM_UPDATE_MS = 280;
+
+  var prefersReduced =
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var state = {
     filters: {
@@ -25,8 +31,11 @@
       rows: [],
     },
     charts: {},
+    kpiValues: {},
+    kpiTimers: {},
     worldReady: false,
     loading: false,
+    revealObserver: null,
   };
 
   var els = {};
@@ -39,12 +48,16 @@
       return;
     }
 
+    ensureToastStack();
     bindFilters();
     bindTable();
     initCharts();
+    setupRevealObserver();
+
     loadWorldMap()
       .catch(function () {
         state.worldReady = false;
+        showToast("Map data unavailable", "World GeoJSON could not be loaded.");
       })
       .finally(function () {
         checkHealth();
@@ -77,6 +90,71 @@
       bots_detected: document.querySelector('[data-kpi="bots_detected"]'),
       countries: document.querySelector('[data-kpi="countries"]'),
     };
+  }
+
+  function ensureToastStack() {
+    els.toastStack = document.querySelector(".toast-stack");
+    if (!els.toastStack) {
+      els.toastStack = document.createElement("div");
+      els.toastStack.className = "toast-stack";
+      els.toastStack.setAttribute("aria-live", "polite");
+      els.toastStack.setAttribute("aria-relevant", "additions");
+      document.body.appendChild(els.toastStack);
+    }
+  }
+
+  function showToast(title, body) {
+    if (!els.toastStack) return;
+    var toast = document.createElement("div");
+    toast.className = "toast toast--error";
+    toast.innerHTML =
+      '<p class="toast__title"></p><p class="toast__body"></p>';
+    toast.querySelector(".toast__title").textContent = title;
+    toast.querySelector(".toast__body").textContent = body || "";
+    els.toastStack.appendChild(toast);
+    requestAnimationFrame(function () {
+      toast.classList.add("is-visible");
+    });
+    setTimeout(function () {
+      toast.classList.remove("is-visible");
+      setTimeout(function () {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 220);
+    }, 4200);
+  }
+
+  function setupRevealObserver() {
+    var cards = document.querySelectorAll(".kpi-card, .panel");
+    cards.forEach(function (card) {
+      card.classList.add("is-reveal");
+    });
+
+    if (prefersReduced || !("IntersectionObserver" in window)) {
+      cards.forEach(function (card) {
+        card.classList.add("is-visible");
+      });
+      return;
+    }
+
+    state.revealObserver = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          var el = entry.target;
+          var delay = Number(el.getAttribute("data-reveal-delay") || 0);
+          setTimeout(function () {
+            el.classList.add("is-visible");
+          }, delay);
+          state.revealObserver.unobserve(el);
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -8% 0px" }
+    );
+
+    cards.forEach(function (card, index) {
+      card.setAttribute("data-reveal-delay", String(Math.min(index * 45, 270)));
+      state.revealObserver.observe(card);
+    });
   }
 
   function bindFilters() {
@@ -114,18 +192,28 @@
   function bindTable() {
     if (els.table) {
       els.table.querySelectorAll("th[data-sort]").forEach(function (th) {
-        th.addEventListener("click", function () {
+        th.setAttribute("tabindex", "0");
+        th.setAttribute("role", "button");
+        var activate = function () {
           var key = th.getAttribute("data-sort");
           if (state.table.sortKey === key) {
             state.table.sortDir = state.table.sortDir === "asc" ? "desc" : "asc";
           } else {
             state.table.sortKey = key;
-            state.table.sortDir = key === "ip" || key === "country" || key === "city" || key === "org"
-              ? "asc"
-              : "desc";
+            state.table.sortDir =
+              key === "ip" || key === "country" || key === "city" || key === "org"
+                ? "asc"
+                : "desc";
           }
           state.table.page = 1;
           renderTable();
+        };
+        th.addEventListener("click", activate);
+        th.addEventListener("keydown", function (event) {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            activate();
+          }
         });
       });
     }
@@ -162,7 +250,6 @@
     state.filters.username = (els.username && els.username.value.trim()) || "";
     state.filters.bots_only = !!(els.botsOnly && els.botsOnly.checked);
     state.filters.search = (els.search && els.search.value.trim()) || "";
-
     applySearchHeuristic();
   }
 
@@ -231,6 +318,23 @@
     };
   }
 
+  function animOpts() {
+    if (prefersReduced) {
+      return {
+        animation: false,
+        animationDuration: 0,
+        animationDurationUpdate: 0,
+      };
+    }
+    return {
+      animation: true,
+      animationDuration: ANIM_MS,
+      animationDurationUpdate: ANIM_UPDATE_MS,
+      animationEasing: "cubicOut",
+      animationEasingUpdate: "cubicInOut",
+    };
+  }
+
   function initCharts() {
     state.charts.timeline = echarts.init(document.getElementById("chart-timeline"));
     state.charts.map = echarts.init(document.getElementById("chart-map"));
@@ -247,7 +351,7 @@
   }
 
   function loadWorldMap() {
-    return fetch("https://cdn.jsdelivr.net/npm/echarts@4.9.0/map/json/world.json")
+    return fetch("/assets/world.json")
       .then(function (res) {
         if (!res.ok) throw new Error("world map fetch failed");
         return res.json();
@@ -286,7 +390,7 @@
   function checkHealth() {
     fetch("/api/health")
       .then(function (res) {
-        return res.ok ? res.json() : Promise.reject();
+        return res.ok ? res.json() : Promise.reject(new Error("health"));
       })
       .then(function () {
         els.pipelineText.textContent = "Online";
@@ -297,12 +401,12 @@
         els.pipelineText.textContent = "Unavailable";
         els.pipelineText.className = "sidebar__status-value is-bad";
         els.pipelineMeta.textContent = "API / DB unreachable";
+        showToast("API unavailable", "Health check failed. Is the server running?");
       });
   }
 
   function refreshAll() {
     setLoading(true);
-    var params = queryParams();
 
     Promise.all([
       fetchJson(apiUrl("/api/kpis")),
@@ -326,6 +430,7 @@
       })
       .catch(function (err) {
         console.error("dashboard refresh failed", err);
+        showToast("Dashboard refresh failed", String(err.message || err));
         renderKpis({});
         setEmpty("empty-timeline", true);
         setEmpty("empty-map", true);
@@ -340,8 +445,6 @@
         setLoading(false);
         resizeCharts();
       });
-
-    return params;
   }
 
   function fetchJson(url) {
@@ -352,17 +455,47 @@
   }
 
   function renderKpis(data) {
-    setKpi("total_failures", data.total_failures);
-    setKpi("unique_ips", data.unique_ips);
-    setKpi("bots_detected", data.bots_detected);
-    setKpi("countries", data.countries);
+    animateKpi("total_failures", data.total_failures);
+    animateKpi("unique_ips", data.unique_ips);
+    animateKpi("bots_detected", data.bots_detected);
+    animateKpi("countries", data.countries);
   }
 
-  function setKpi(key, value) {
+  function animateKpi(key, nextValue) {
     var node = els.kpi[key];
     if (!node) return;
     node.classList.remove("skeleton");
-    node.textContent = formatNumber(value == null ? 0 : value);
+
+    var target = Number(nextValue || 0);
+    var from = Number(state.kpiValues[key] || 0);
+    state.kpiValues[key] = target;
+
+    if (prefersReduced || from === target) {
+      node.textContent = formatNumber(target);
+      return;
+    }
+
+    if (state.kpiTimers[key]) {
+      cancelAnimationFrame(state.kpiTimers[key]);
+    }
+
+    var start = null;
+    var duration = ANIM_MS;
+
+    function step(ts) {
+      if (start == null) start = ts;
+      var t = Math.min(1, (ts - start) / duration);
+      var eased = 1 - Math.pow(1 - t, 3);
+      var current = Math.round(from + (target - from) * eased);
+      node.textContent = formatNumber(current);
+      if (t < 1) {
+        state.kpiTimers[key] = requestAnimationFrame(step);
+      } else {
+        node.textContent = formatNumber(target);
+      }
+    }
+
+    state.kpiTimers[key] = requestAnimationFrame(step);
   }
 
   function formatNumber(value) {
@@ -385,50 +518,56 @@
       return row.failures;
     });
 
-    state.charts.timeline.setOption({
-      backgroundColor: "transparent",
-      textStyle: { fontFamily: theme.sans, color: theme.muted },
-      tooltip: { trigger: "axis" },
-      grid: { left: 48, right: 24, top: 24, bottom: 72 },
-      xAxis: {
-        type: "category",
-        data: times,
-        axisLine: { lineStyle: { color: theme.border } },
-        axisLabel: {
-          color: theme.muted,
-          formatter: function (value) {
-            return String(value).slice(5, 16);
+    state.charts.timeline.setOption(
+      Object.assign({}, animOpts(), {
+        backgroundColor: "transparent",
+        textStyle: { fontFamily: theme.sans, color: theme.muted },
+        tooltip: { trigger: "axis" },
+        grid: { left: 48, right: 24, top: 24, bottom: 72 },
+        xAxis: {
+          type: "category",
+          data: times,
+          axisLine: { lineStyle: { color: theme.border } },
+          axisLabel: {
+            color: theme.muted,
+            formatter: function (value) {
+              return String(value).slice(5, 16);
+            },
           },
         },
-      },
-      yAxis: {
-        type: "value",
-        axisLabel: { color: theme.muted, fontFamily: theme.mono },
-        splitLine: { lineStyle: { color: theme.border } },
-      },
-      dataZoom: [
-        { type: "inside", start: 0, end: 100 },
-        {
-          type: "slider",
-          height: 18,
-          bottom: 12,
-          borderColor: theme.border,
-          fillerColor: "rgba(34,211,238,0.18)",
-          handleStyle: { color: theme.accent },
-          textStyle: { color: theme.muted },
+        yAxis: {
+          type: "value",
+          axisLabel: { color: theme.muted, fontFamily: theme.mono },
+          splitLine: { lineStyle: { color: theme.border } },
         },
-      ],
-      series: [
-        {
-          type: "line",
-          smooth: true,
-          showSymbol: false,
-          data: values,
-          lineStyle: { color: theme.accent, width: 2 },
-          areaStyle: { color: "rgba(34,211,238,0.12)" },
-        },
-      ],
-    }, true);
+        dataZoom: [
+          { type: "inside", start: 0, end: 100 },
+          {
+            type: "slider",
+            height: 18,
+            bottom: 12,
+            borderColor: theme.border,
+            fillerColor: "rgba(34,211,238,0.18)",
+            handleStyle: { color: theme.accent },
+            textStyle: { color: theme.muted },
+          },
+        ],
+        series: [
+          {
+            type: "line",
+            smooth: true,
+            showSymbol: false,
+            data: values,
+            lineStyle: { color: theme.accent, width: 2 },
+            areaStyle: { color: "rgba(34,211,238,0.12)" },
+            animationDelay: function (idx) {
+              return prefersReduced ? 0 : Math.min(idx * 4, 200);
+            },
+          },
+        ],
+      }),
+      { notMerge: false }
+    );
   }
 
   function renderMap(rows) {
@@ -460,50 +599,83 @@
       return Math.max(max, item.value[2]);
     }, 1);
 
-    state.charts.map.setOption({
-      backgroundColor: "transparent",
-      tooltip: {
-        trigger: "item",
-        formatter: function (params) {
-          var d = params.data || {};
-          return (
-            (d.ip || params.name) +
-            "<br/>" +
-            (d.city || "Unknown") +
-            ", " +
-            (d.country || "?") +
-            "<br/>Attempts: " +
-            formatNumber(d.failures || 0)
-          );
-        },
-      },
-      geo: {
-        map: "world",
-        roam: true,
-        itemStyle: {
-          areaColor: theme.surface,
-          borderColor: theme.border,
-        },
-        emphasis: {
-          itemStyle: { areaColor: "#1e293b" },
-        },
-      },
-      series: [
-        {
-          type: "scatter",
-          coordinateSystem: "geo",
-          data: points,
-          symbolSize: function (val) {
-            return 6 + (Math.sqrt(val[2]) / Math.sqrt(maxVal)) * 22;
+    var hot = points
+      .slice()
+      .sort(function (a, b) {
+        return b.value[2] - a.value[2];
+      })
+      .slice(0, 8);
+
+    state.charts.map.setOption(
+      Object.assign({}, animOpts(), {
+        backgroundColor: "transparent",
+        tooltip: {
+          trigger: "item",
+          formatter: function (params) {
+            var d = params.data || {};
+            return (
+              (d.ip || params.name) +
+              "<br/>" +
+              (d.city || "Unknown") +
+              ", " +
+              (d.country || "?") +
+              "<br/>Attempts: " +
+              formatNumber(d.failures || 0)
+            );
           },
+        },
+        geo: {
+          map: "world",
+          roam: true,
           itemStyle: {
-            color: theme.danger,
-            shadowBlur: 12,
-            shadowColor: "rgba(244,63,94,0.45)",
+            areaColor: theme.surface,
+            borderColor: theme.border,
+          },
+          emphasis: {
+            itemStyle: { areaColor: "#1e293b" },
           },
         },
-      ],
-    }, true);
+        series: [
+          {
+            type: "scatter",
+            coordinateSystem: "geo",
+            data: points,
+            symbolSize: function (val) {
+              return 6 + (Math.sqrt(val[2]) / Math.sqrt(maxVal)) * 22;
+            },
+            itemStyle: {
+              color: theme.danger,
+              shadowBlur: 10,
+              shadowColor: "rgba(244,63,94,0.35)",
+            },
+            animationDelay: function (idx) {
+              return prefersReduced ? 0 : Math.min(idx * 8, 240);
+            },
+          },
+          {
+            type: "effectScatter",
+            coordinateSystem: "geo",
+            data: hot,
+            symbolSize: function (val) {
+              return 10 + (Math.sqrt(val[2]) / Math.sqrt(maxVal)) * 18;
+            },
+            showEffectOn: "render",
+            rippleEffect: {
+              brushType: "stroke",
+              scale: prefersReduced ? 1 : 3.2,
+              period: 3.2,
+            },
+            itemStyle: {
+              color: theme.accent,
+              shadowBlur: 16,
+              shadowColor: "rgba(34,211,238,0.55)",
+            },
+            zlevel: 1,
+          },
+        ],
+      }),
+      { notMerge: true }
+    );
 
     state.charts.map.off("click");
     state.charts.map.on("click", function (params) {
@@ -523,28 +695,33 @@
     var labels = rows.map(function (row) { return row.ip; }).reverse();
     var values = rows.map(function (row) { return row.failures; }).reverse();
 
-    state.charts.topIps.setOption({
-      backgroundColor: "transparent",
-      tooltip: { trigger: "axis" },
-      grid: { left: 110, right: 24, top: 16, bottom: 24 },
-      xAxis: {
-        type: "value",
-        axisLabel: { color: theme.muted, fontFamily: theme.mono },
-        splitLine: { lineStyle: { color: theme.border } },
-      },
-      yAxis: {
-        type: "category",
-        data: labels,
-        axisLabel: { color: theme.muted, fontFamily: theme.mono, fontSize: 10 },
-      },
-      series: [
-        {
-          type: "bar",
-          data: values,
-          itemStyle: { color: theme.accent, borderRadius: [0, 4, 4, 0] },
+    state.charts.topIps.setOption(
+      Object.assign({}, animOpts(), {
+        backgroundColor: "transparent",
+        tooltip: { trigger: "axis" },
+        grid: { left: 110, right: 24, top: 16, bottom: 24 },
+        xAxis: {
+          type: "value",
+          axisLabel: { color: theme.muted, fontFamily: theme.mono },
+          splitLine: { lineStyle: { color: theme.border } },
         },
-      ],
-    }, true);
+        yAxis: {
+          type: "category",
+          data: labels,
+          axisLabel: { color: theme.muted, fontFamily: theme.mono, fontSize: 10 },
+        },
+        series: [
+          {
+            type: "bar",
+            data: values,
+            itemStyle: { color: theme.accent, borderRadius: [0, 4, 4, 0] },
+            animationDelay: function (idx) {
+              return prefersReduced ? 0 : idx * 30;
+            },
+          },
+        ],
+      })
+    );
 
     state.charts.topIps.off("click");
     state.charts.topIps.on("click", function (params) {
@@ -563,28 +740,33 @@
     var labels = rows.map(function (row) { return row.username; }).reverse();
     var values = rows.map(function (row) { return row.failures; }).reverse();
 
-    state.charts.topUsers.setOption({
-      backgroundColor: "transparent",
-      tooltip: { trigger: "axis" },
-      grid: { left: 80, right: 24, top: 16, bottom: 24 },
-      xAxis: {
-        type: "value",
-        axisLabel: { color: theme.muted, fontFamily: theme.mono },
-        splitLine: { lineStyle: { color: theme.border } },
-      },
-      yAxis: {
-        type: "category",
-        data: labels,
-        axisLabel: { color: theme.muted, fontFamily: theme.mono },
-      },
-      series: [
-        {
-          type: "bar",
-          data: values,
-          itemStyle: { color: theme.warning, borderRadius: [0, 4, 4, 0] },
+    state.charts.topUsers.setOption(
+      Object.assign({}, animOpts(), {
+        backgroundColor: "transparent",
+        tooltip: { trigger: "axis" },
+        grid: { left: 80, right: 24, top: 16, bottom: 24 },
+        xAxis: {
+          type: "value",
+          axisLabel: { color: theme.muted, fontFamily: theme.mono },
+          splitLine: { lineStyle: { color: theme.border } },
         },
-      ],
-    }, true);
+        yAxis: {
+          type: "category",
+          data: labels,
+          axisLabel: { color: theme.muted, fontFamily: theme.mono },
+        },
+        series: [
+          {
+            type: "bar",
+            data: values,
+            itemStyle: { color: theme.warning, borderRadius: [0, 4, 4, 0] },
+            animationDelay: function (idx) {
+              return prefersReduced ? 0 : idx * 30;
+            },
+          },
+        ],
+      })
+    );
   }
 
   function renderCountries(rows) {
@@ -596,46 +778,50 @@
       return;
     }
 
-    state.charts.countries.setOption({
-      backgroundColor: "transparent",
-      tooltip: { trigger: "item" },
-      legend: {
-        type: "scroll",
-        orient: "vertical",
-        right: 0,
-        top: 16,
-        bottom: 16,
-        textStyle: { color: theme.muted, fontSize: 11 },
-      },
-      series: [
-        {
-          type: "pie",
-          radius: ["48%", "72%"],
-          center: ["38%", "50%"],
-          data: rows.map(function (row) {
-            return {
-              name: row.country_code || row.country || "??",
-              value: row.failures,
-            };
-          }),
-          label: { color: theme.muted },
-          itemStyle: {
-            borderColor: theme.bg,
-            borderWidth: 2,
-          },
-          color: [
-            theme.accent,
-            theme.danger,
-            theme.warning,
-            "#38bdf8",
-            "#2dd4bf",
-            "#34d399",
-            "#fb7185",
-            "#fbbf24",
-          ],
+    state.charts.countries.setOption(
+      Object.assign({}, animOpts(), {
+        backgroundColor: "transparent",
+        tooltip: { trigger: "item" },
+        legend: {
+          type: "scroll",
+          orient: "vertical",
+          right: 0,
+          top: 16,
+          bottom: 16,
+          textStyle: { color: theme.muted, fontSize: 11 },
         },
-      ],
-    }, true);
+        series: [
+          {
+            type: "pie",
+            radius: ["48%", "72%"],
+            center: ["38%", "50%"],
+            data: rows.map(function (row) {
+              return {
+                name: row.country_code || row.country || "??",
+                value: row.failures,
+              };
+            }),
+            label: { color: theme.muted },
+            itemStyle: {
+              borderColor: theme.bg,
+              borderWidth: 2,
+            },
+            color: [
+              theme.accent,
+              theme.danger,
+              theme.warning,
+              "#38bdf8",
+              "#2dd4bf",
+              "#34d399",
+              "#fb7185",
+              "#fbbf24",
+            ],
+            animationType: "scale",
+            animationEasing: "elasticOut",
+          },
+        ],
+      })
+    );
   }
 
   function renderHeatmap(timelineRows) {
@@ -668,52 +854,54 @@
       return;
     }
 
-    state.charts.heatmap.setOption({
-      backgroundColor: "transparent",
-      tooltip: {
-        formatter: function (p) {
-          return (
-            DAY_NAMES[p.value[1]] +
-            " " +
-            String(p.value[0]).padStart(2, "0") +
-            ":00 — " +
-            formatNumber(p.value[2])
-          );
-        },
-      },
-      grid: { left: 48, right: 24, top: 16, bottom: 28 },
-      xAxis: {
-        type: "category",
-        data: Array.from({ length: 24 }, function (_, i) {
-          return String(i).padStart(2, "0");
-        }),
-        axisLabel: { color: theme.muted, fontFamily: theme.mono, fontSize: 10 },
-      },
-      yAxis: {
-        type: "category",
-        data: DAY_NAMES,
-        axisLabel: { color: theme.muted },
-      },
-      visualMap: {
-        min: 0,
-        max: max,
-        calculable: true,
-        orient: "horizontal",
-        left: "center",
-        bottom: 0,
-        inRange: { color: ["#121826", "#164e63", theme.accent, theme.danger] },
-        textStyle: { color: theme.muted },
-      },
-      series: [
-        {
-          type: "heatmap",
-          data: data,
-          emphasis: {
-            itemStyle: { shadowBlur: 8, shadowColor: "rgba(0,0,0,0.4)" },
+    state.charts.heatmap.setOption(
+      Object.assign({}, animOpts(), {
+        backgroundColor: "transparent",
+        tooltip: {
+          formatter: function (p) {
+            return (
+              DAY_NAMES[p.value[1]] +
+              " " +
+              String(p.value[0]).padStart(2, "0") +
+              ":00 — " +
+              formatNumber(p.value[2])
+            );
           },
         },
-      ],
-    }, true);
+        grid: { left: 48, right: 24, top: 16, bottom: 28 },
+        xAxis: {
+          type: "category",
+          data: Array.from({ length: 24 }, function (_, i) {
+            return String(i).padStart(2, "0");
+          }),
+          axisLabel: { color: theme.muted, fontFamily: theme.mono, fontSize: 10 },
+        },
+        yAxis: {
+          type: "category",
+          data: DAY_NAMES,
+          axisLabel: { color: theme.muted },
+        },
+        visualMap: {
+          min: 0,
+          max: max,
+          calculable: true,
+          orient: "horizontal",
+          left: "center",
+          bottom: 0,
+          inRange: { color: ["#121826", "#164e63", theme.accent, theme.danger] },
+          textStyle: { color: theme.muted },
+        },
+        series: [
+          {
+            type: "heatmap",
+            data: data,
+            emphasis: {
+              itemStyle: { shadowBlur: 8, shadowColor: "rgba(0,0,0,0.4)" },
+            },
+          },
+        ],
+      })
+    );
   }
 
   function renderTable() {
@@ -773,12 +961,12 @@
           ? '<span class="badge badge--bot">BOT</span>'
           : '<span class="badge badge--clean">—</span>';
         return (
-          "<tr class=\"" +
+          '<tr tabindex="0" class="' +
           active.trim() +
-          "\" data-ip=\"" +
+          '" data-ip="' +
           escapeHtml(row.ip || "") +
-          "\">" +
-          "<td class=\"mono\">" +
+          '">' +
+          '<td class="mono">' +
           escapeHtml(row.ip || "") +
           "</td>" +
           "<td>" +
@@ -790,10 +978,10 @@
           "<td>" +
           escapeHtml(row.org || "—") +
           "</td>" +
-          "<td class=\"mono\">" +
+          '<td class="mono">' +
           formatNumber(row.failed_count || row.failures_in_range || 0) +
           "</td>" +
-          "<td class=\"mono\">—</td>" +
+          '<td class="mono">—</td>' +
           "<td>" +
           botBadge +
           "</td>" +
@@ -803,8 +991,15 @@
       .join("");
 
     els.tableBody.querySelectorAll("tr[data-ip]").forEach(function (tr) {
-      tr.addEventListener("click", function () {
+      var activate = function () {
         applyIpFilter(tr.getAttribute("data-ip"));
+      };
+      tr.addEventListener("click", activate);
+      tr.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          activate();
+        }
       });
     });
   }
