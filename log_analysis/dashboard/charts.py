@@ -118,7 +118,13 @@ def build_charts(events: List[AuthEvent]) -> List[Path]:
     success_labels, success_values = _top(success_by_user, 15)
     invalid_labels, invalid_values = _top(invalid_by_user, 15)
 
+    bots_by_ip: Counter = Counter()
+    for event in events:
+        if event.is_bot and event.event_type in _FAIL_TYPES:
+            bots_by_ip[event.ip] += 1
+
     invalid_total = sum(invalid_by_user.values())
+    bot_labels, bot_values = _top(bots_by_ip, 15)
     panels = [
         (
             country_labels,
@@ -141,6 +147,13 @@ def build_charts(events: List[AuthEvent]) -> List[Path]:
             "echecs_invalid_user.png",
             "#b9770e",
         ),
+        (
+            bot_labels,
+            bot_values,
+            "Bots : echecs par IP (5 en 30 s)",
+            "echecs_bots.png",
+            "#6c3483",
+        ),
     ]
     paths = [
         _save_barh(labels, values, title, filename, color)
@@ -156,8 +169,8 @@ def _open_dashboard(panels: List[tuple]) -> None:
 
     try:
         _REPORTS.mkdir(parents=True, exist_ok=True)
-        fig, axes = plt.subplots(3, 1, figsize=(11, 14))
-        for axis, panel in zip(axes, panels):
+        fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+        for axis, panel in zip(axes.ravel(), panels):
             labels, values, title, _filename, color = panel
             _draw(axis, labels, values, title, color)
         fig.suptitle("Dashboard des tentatives SSH")
