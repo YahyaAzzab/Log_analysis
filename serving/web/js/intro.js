@@ -1,11 +1,9 @@
 /**
  * STRIX intro sequence (~3s) with GSAP.
- * Once per session, skippable, respects prefers-reduced-motion.
+ * Plays on every page load, skippable, respects prefers-reduced-motion.
  */
 (function () {
   "use strict";
-
-  var STORAGE_KEY = "strix_intro_seen";
 
   var intro = document.getElementById("intro");
   var dashboard = document.getElementById("dashboard");
@@ -28,17 +26,9 @@
   var prefersReduced =
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var alreadySeen = false;
   var finished = false;
 
-  try {
-    alreadySeen = sessionStorage.getItem(STORAGE_KEY) === "1";
-  } catch (err) {
-    alreadySeen = false;
-  }
-
-  if (alreadySeen || prefersReduced) {
-    markSeen();
+  if (prefersReduced) {
     showDashboardImmediate();
     return;
   }
@@ -222,10 +212,10 @@
     }
     finished = true;
     cleanupSkipListeners();
-    markSeen();
     intro.classList.add("is-done");
     intro.setAttribute("aria-hidden", "true");
     intro.style.pointerEvents = "none";
+    window.dispatchEvent(new Event("strix-dashboard-visible"));
   }
 
   function showDashboardImmediate() {
@@ -242,14 +232,7 @@
       item.style.opacity = "1";
       item.style.transform = "none";
     });
-  }
-
-  function markSeen() {
-    try {
-      sessionStorage.setItem(STORAGE_KEY, "1");
-    } catch (err) {
-      // Ignore storage failures (private mode, etc.).
-    }
+    window.dispatchEvent(new Event("strix-dashboard-visible"));
   }
 
   function cleanupSkipListeners() {
