@@ -55,6 +55,7 @@ class AuthEvent:
         self.port = port
         self.source_file = source_file
         self.country = ""
+        self.is_bot = False
 
 
 def _timestamp(line: str) -> Optional[datetime]:
