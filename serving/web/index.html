@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>STRIX - Failed logins</title>
+  <title>STRIX — Dashboard</title>
   <link rel="stylesheet" href="/styles/tokens.css" />
   <link rel="stylesheet" href="/styles/intro.css" />
   <link rel="stylesheet" href="/styles/dashboard.css" />
 </head>
 <body>
   <a class="skip-link" href="#dashboard">Skip to dashboard</a>
-
   <div id="intro" class="intro" aria-hidden="false">
     <div class="intro__stage">
       <div id="intro-logo-fly" class="intro__logo-fly">
@@ -19,10 +18,10 @@
           <path class="intro-draw intro-draw--head" d="M32 8 L48 18 L48 36 L32 52 L16 36 L16 18 Z" />
           <path class="intro-draw intro-draw--ear" d="M18 16 L14 6 L24 14 Z" />
           <path class="intro-draw intro-draw--ear" d="M46 16 L50 6 L40 14 Z" />
-          <path class="intro-draw intro-draw--eye" id="intro-eye-left" d="M23 22 L29 22 L29 30 C29 33.5 26.5 36 23 37.5 C19.5 36 17 33.5 17 30 L17 22 Z" />
-          <path class="intro-draw intro-draw--eye" id="intro-eye-right" d="M41 22 L47 22 L47 30 C47 33.5 44.5 36 41 37.5 C37.5 36 35 33.5 35 30 L35 22 Z" />
-          <rect class="intro-pupil" id="intro-pupil-left" x="21.5" y="25" width="3" height="7" rx="1" />
-          <rect class="intro-pupil" id="intro-pupil-right" x="39.5" y="25" width="3" height="7" rx="1" />
+          <path class="intro-draw intro-draw--eye" d="M23 22 L29 22 L29 30 C29 33.5 26.5 36 23 37.5 C19.5 36 17 33.5 17 30 L17 22 Z" />
+          <path class="intro-draw intro-draw--eye" d="M41 22 L47 22 L47 30 C47 33.5 44.5 36 41 37.5 C37.5 36 35 33.5 35 30 L35 22 Z" />
+          <rect class="intro-pupil" x="21.5" y="25" width="3" height="7" rx="1" />
+          <rect class="intro-pupil" x="39.5" y="25" width="3" height="7" rx="1" />
           <path class="intro-draw intro-draw--beak" d="M32 34 L36 40 L32 44 L28 40 Z" />
         </svg>
       </div>
@@ -31,203 +30,14 @@
       </h1>
       <p id="intro-subtitle" class="intro__subtitle">Authentication Threat Intelligence</p>
     </div>
-    <div class="intro__progress" aria-hidden="true">
-      <div id="intro-progress-bar" class="intro__progress-bar"></div>
-    </div>
+    <div class="intro__progress" aria-hidden="true"><div id="intro-progress-bar" class="intro__progress-bar"></div></div>
     <p class="intro__hint">Press Enter or click to skip</p>
   </div>
-
-  <div id="dashboard" class="app is-hidden" aria-hidden="true">
-    <aside class="sidebar" aria-label="Primary">
-      <header class="sidebar__brand">
-        <div id="header-logo-slot" class="sidebar__logo-slot">
-          <svg class="sidebar__logo" viewBox="0 0 64 64" width="28" height="28" aria-hidden="true">
-            <use href="/assets/logo.svg#strix-mark" width="64" height="64"></use>
-          </svg>
-        </div>
-        <div class="sidebar__brand-text">
-          <span class="sidebar__title">STRIX</span>
-          <span class="sidebar__tag">Failed logins</span>
-        </div>
-      </header>
-
-      <nav class="sidebar__nav">
-        <a class="sidebar__link is-active" href="#view-overview">Overview</a>
-        <a class="sidebar__link" href="#view-timeline">Timeline</a>
-        <a class="sidebar__link" href="#view-map">Map</a>
-        <a class="sidebar__link" href="#view-table">Malicious IPs</a>
-      </nav>
-
-      <div class="sidebar__status" id="pipeline-status">
-        <p class="sidebar__status-label">Pipeline</p>
-        <p class="sidebar__status-value" id="pipeline-status-text">Checking…</p>
-        <p class="sidebar__status-meta mono" id="pipeline-status-meta">/api/health</p>
-      </div>
-    </aside>
-
-    <div class="workspace">
-      <header class="filters" id="filters">
-        <div class="filters__title-block">
-          <h1 class="filters__title">Failed logins</h1>
-          <p class="filters__subtitle">SSH authentication failures only</p>
-        </div>
-
-        <div class="filters__controls">
-          <label class="field">
-            <span class="field__label">From</span>
-            <input class="field__input mono" type="date" id="filter-date-from" />
-          </label>
-          <label class="field">
-            <span class="field__label">To</span>
-            <input class="field__input mono" type="date" id="filter-date-to" />
-          </label>
-          <label class="field">
-            <span class="field__label">Country</span>
-            <input class="field__input" type="text" id="filter-country" placeholder="US, France…" />
-          </label>
-          <label class="field">
-            <span class="field__label">IP</span>
-            <input class="field__input mono" type="text" id="filter-ip" placeholder="1.2.3.4" />
-          </label>
-          <label class="field">
-            <span class="field__label">User</span>
-            <input class="field__input mono" type="text" id="filter-username" placeholder="root, admin…" />
-          </label>
-          <label class="field field--switch">
-            <span class="field__label">Bots only</span>
-            <input class="field__switch" type="checkbox" id="filter-bots-only" />
-          </label>
-          <label class="field field--search">
-            <span class="field__label">Search</span>
-            <input class="field__input" type="search" id="filter-search" placeholder="Search IP, user, country…" />
-          </label>
-          <button type="button" class="btn btn--ghost" id="filter-reset">Reset</button>
-        </div>
-      </header>
-
-      <main class="main" id="view-overview">
-        <section class="kpi-row" aria-label="KPIs">
-          <article class="kpi-card dash-item" id="kpi-failures">
-            <p class="kpi-card__label">Total failures</p>
-            <p class="kpi-card__value mono skeleton" data-kpi="total_failures">--</p>
-          </article>
-          <article class="kpi-card dash-item" id="kpi-ips">
-            <p class="kpi-card__label">Unique IPs</p>
-            <p class="kpi-card__value mono skeleton" data-kpi="unique_ips">--</p>
-          </article>
-          <article class="kpi-card dash-item" id="kpi-bots">
-            <p class="kpi-card__label">Bots detected</p>
-            <p class="kpi-card__value mono skeleton" data-kpi="bots_detected">--</p>
-          </article>
-          <article class="kpi-card dash-item" id="kpi-countries">
-            <p class="kpi-card__label">Source countries</p>
-            <p class="kpi-card__value mono skeleton" data-kpi="countries">--</p>
-          </article>
-        </section>
-
-        <section class="grid-dashboard">
-          <article class="panel panel--wide dash-item" id="view-timeline">
-            <div class="panel__head">
-              <h2 class="panel__title">Failures over time</h2>
-              <p class="panel__hint">Zoom and brush the timeline</p>
-            </div>
-            <div class="chart-wrap">
-              <div id="chart-timeline" class="chart skeleton-block"></div>
-              <p class="empty-state" id="empty-timeline" hidden>No failures in this range.</p>
-            </div>
-          </article>
-
-          <article class="panel panel--wide dash-item" id="view-map">
-            <div class="panel__head">
-              <h2 class="panel__title">Attacker map</h2>
-              <p class="panel__hint">Bubble size = attempt count</p>
-            </div>
-            <div class="chart-wrap">
-              <div id="chart-map" class="chart chart--tall skeleton-block"></div>
-              <p class="empty-state" id="empty-map" hidden>No geolocated attackers to plot.</p>
-            </div>
-          </article>
-
-          <article class="panel dash-item">
-            <div class="panel__head">
-              <h2 class="panel__title">Top 10 IPs</h2>
-            </div>
-            <div class="chart-wrap">
-              <div id="chart-top-ips" class="chart skeleton-block"></div>
-              <p class="empty-state" id="empty-top-ips" hidden>No IP data.</p>
-            </div>
-          </article>
-
-          <article class="panel dash-item">
-            <div class="panel__head">
-              <h2 class="panel__title">Top targeted users</h2>
-            </div>
-            <div class="chart-wrap">
-              <div id="chart-top-users" class="chart skeleton-block"></div>
-              <p class="empty-state" id="empty-top-users" hidden>No username data.</p>
-            </div>
-          </article>
-
-          <article class="panel dash-item">
-            <div class="panel__head">
-              <h2 class="panel__title">Countries</h2>
-            </div>
-            <div class="chart-wrap">
-              <div id="chart-countries" class="chart skeleton-block"></div>
-              <p class="empty-state" id="empty-countries" hidden>No country data.</p>
-            </div>
-          </article>
-
-          <article class="panel dash-item">
-            <div class="panel__head">
-              <h2 class="panel__title">Heatmap hour x day</h2>
-            </div>
-            <div class="chart-wrap">
-              <div id="chart-heatmap" class="chart skeleton-block"></div>
-              <p class="empty-state" id="empty-heatmap" hidden>No heatmap data.</p>
-            </div>
-          </article>
-
-          <article class="panel panel--wide dash-item" id="view-table">
-            <div class="panel__head panel__head--row">
-              <div>
-                <h2 class="panel__title">Malicious IPs</h2>
-                <p class="panel__hint">Click a row to filter the whole dashboard</p>
-              </div>
-              <div class="table-pager">
-                <button type="button" class="btn btn--ghost" id="table-prev">Prev</button>
-                <span class="table-pager__meta mono" id="table-page-meta">1 / 1</span>
-                <button type="button" class="btn btn--ghost" id="table-next">Next</button>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table class="data-table" id="table-bots">
-                <thead>
-                  <tr>
-                    <th data-sort="ip">IP</th>
-                    <th data-sort="country">Country</th>
-                    <th data-sort="city">City</th>
-                    <th data-sort="org">Org</th>
-                    <th data-sort="failed_count">Attempts</th>
-                    <th data-sort="burst">Burst max</th>
-                    <th data-sort="is_bot">Bot</th>
-                  </tr>
-                </thead>
-                <tbody id="table-bots-body">
-                  <tr class="skeleton-row"><td colspan="7">Loading…</td></tr>
-                </tbody>
-              </table>
-              <p class="empty-state" id="empty-table" hidden>No malicious IPs for these filters.</p>
-            </div>
-          </article>
-        </section>
-      </main>
-    </div>
-  </div>
-
+  <div id="dashboard" class="app is-hidden" aria-hidden="true"></div>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+  <script src="/js/shell.js" defer></script>
+  <script src="/js/pages/dashboard.js" defer></script>
   <script src="/js/intro.js" defer></script>
-  <script src="/js/dashboard.js" defer></script>
 </body>
 </html>
