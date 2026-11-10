@@ -1,0 +1,130 @@
+/* STRIX design tokens - dark SOC / cybersecurity theme.
+   All frontend styles must use these variables only. */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* Color - surfaces */
+  --strix-bg: #0b0f1a;
+  --strix-surface: #121826;
+  --strix-surface-elevated: #1a2234;
+  --strix-surface-hover: #1e293b;
+  --strix-border: rgba(148, 163, 184, 0.16);
+  --strix-border-strong: rgba(148, 163, 184, 0.28);
+
+  /* Color - brand & status */
+  --strix-accent: #22d3ee;
+  --strix-accent-muted: rgba(34, 211, 238, 0.14);
+  --strix-accent-strong: #06b6d4;
+  --strix-danger: #f43f5e;
+  --strix-danger-muted: rgba(244, 63, 94, 0.14);
+  --strix-warning: #f59e0b;
+  --strix-warning-muted: rgba(245, 158, 11, 0.14);
+  --strix-success: #10b981;
+  --strix-success-muted: rgba(16, 185, 129, 0.14);
+
+  /* Color - text */
+  --strix-text: #e5e7eb;
+  --strix-text-muted: #9ca3af;
+  --strix-text-subtle: #6b7280;
+  --strix-text-inverse: #0b0f1a;
+
+  /* Typography */
+  --strix-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --strix-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --strix-text-xs: 0.75rem;
+  --strix-text-sm: 0.875rem;
+  --strix-text-md: 1rem;
+  --strix-text-lg: 1.125rem;
+  --strix-text-xl: 1.25rem;
+  --strix-text-2xl: 1.5rem;
+  --strix-text-3xl: 1.875rem;
+
+  --strix-leading-tight: 1.25;
+  --strix-leading-normal: 1.5;
+  --strix-leading-relaxed: 1.65;
+
+  --strix-tracking-tight: -0.02em;
+  --strix-tracking-normal: 0;
+  --strix-tracking-wide: 0.08em;
+  --strix-tracking-mega: 0.18em;
+
+  --strix-weight-regular: 400;
+  --strix-weight-medium: 500;
+  --strix-weight-semibold: 600;
+  --strix-weight-bold: 700;
+
+  /* Spacing scale (4px base) */
+  --strix-space-0: 0;
+  --strix-space-1: 0.25rem;
+  --strix-space-2: 0.5rem;
+  --strix-space-3: 0.75rem;
+  --strix-space-4: 1rem;
+  --strix-space-5: 1.25rem;
+  --strix-space-6: 1.5rem;
+  --strix-space-8: 2rem;
+  --strix-space-10: 2.5rem;
+  --strix-space-12: 3rem;
+  --strix-space-16: 4rem;
+
+  /* Radii */
+  --strix-radius-sm: 0.375rem;
+  --strix-radius-md: 0.5rem;
+  --strix-radius-lg: 0.75rem;
+  --strix-radius-xl: 1rem;
+  --strix-radius-full: 9999px;
+
+  /* Shadows */
+  --strix-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --strix-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --strix-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --strix-shadow-glow: 0 0 0 1px var(--strix-accent-muted),
+    0 0 24px rgba(34, 211, 238, 0.18);
+
+  /* Motion */
+  --strix-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --strix-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --strix-ease-entrance: cubic-bezier(0, 0, 0.2, 1);
+  --strix-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --strix-duration-fast: 120ms;
+  --strix-duration-normal: 200ms;
+  --strix-duration-slow: 320ms;
+
+  /* Layout helpers */
+  --strix-header-height: 4rem;
+  --strix-sidebar-width: 16rem;
+  --strix-content-max: 72rem;
+  --strix-focus-ring: 0 0 0 2px var(--strix-bg), 0 0 0 4px var(--strix-accent);
+}
+
+/* Base remapping so pages inherit the theme by default */
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--strix-bg);
+  color: var(--strix-text);
+  font-family: var(--strix-font-sans);
+  font-size: var(--strix-text-md);
+  font-weight: var(--strix-weight-regular);
+  line-height: var(--strix-leading-normal);
+}
+
+code,
+kbd,
+samp,
+pre,
+.mono,
+.ip,
+.metric-value {
+  font-family: var(--strix-font-mono);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--strix-focus-ring);
+}
