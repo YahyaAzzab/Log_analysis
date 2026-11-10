@@ -15,6 +15,7 @@ from storage.database import get_connection
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 FAIL_TYPES = ("failed_password", "invalid_user", "auth_failure")
+ALL_TYPES = ("failed_password", "invalid_user", "auth_failure", "accepted")
 
 app = FastAPI(title="STRIX API", version="0.1.0")
 
@@ -63,10 +64,12 @@ def _event_filters(
     bots_only: bool,
     min_attempts: Optional[int],
     alias: str = "e",
+    scope: str = "failures",
 ) -> Tuple[str, List[Any]]:
     """Build WHERE clause fragments for auth_events (+ optional ip_intel)."""
+    event_types = ALL_TYPES if scope == "all" else FAIL_TYPES
     clauses = [f"{alias}.event_type IN %s"]
-    params: List[Any] = [FAIL_TYPES]
+    params: List[Any] = [event_types]
 
     if date_from is not None:
         clauses.append(f"{alias}.ts >= %s")
@@ -81,7 +84,7 @@ def _event_filters(
         clauses.append(f"{alias}.username ILIKE %s")
         params.append(f"%{username}%")
     if country:
-        clauses.append("i.country_code ILIKE %s OR i.country ILIKE %s")
+        clauses.append("(i.country_code ILIKE %s OR i.country ILIKE %s)")
         params.extend([country, f"%{country}%"])
     if bots_only:
         clauses.append("i.is_bot = TRUE")
@@ -110,10 +113,11 @@ def api_kpis(
     username: Optional[str] = None,
     bots_only: bool = False,
     min_attempts: Optional[int] = Query(default=None, ge=0),
+    scope: str = Query(default="failures", pattern="^(failures|all)$"),
 ) -> Dict[str, Any]:
-    """Return high-level KPIs for the filtered failure set."""
+    """Return high-level KPIs for the filtered auth set."""
     where, params = _event_filters(
-        date_from, date_to, country, ip, username, bots_only, min_attempts
+        date_from, date_to, country, ip, username, bots_only, min_attempts, scope=scope
     )
     join = "LEFT JOIN ip_intel i ON e.ip = i.ip" if _needs_intel(
         country, bots_only, min_attempts
@@ -122,7 +126,13 @@ def api_kpis(
     summary = _fetch_one(
         f"""
         SELECT
-            COUNT(*)::int AS total_failures,
+            COUNT(*) FILTER (
+                WHERE e.event_type IN ('failed_password', 'invalid_user', 'auth_failure')
+            )::int AS total_failures,
+            COUNT(*) FILTER (WHERE e.event_type = 'invalid_user')::int AS invalid_users,
+            COUNT(*) FILTER (WHERE e.event_type = 'failed_password')::int AS failed_passwords,
+            COUNT(*) FILTER (WHERE e.event_type = 'accepted')::int AS success_passwords,
+            COUNT(*)::int AS times,
             COUNT(DISTINCT e.ip)::int AS unique_ips,
             COUNT(DISTINCT CASE WHEN i.is_bot THEN e.ip END)::int AS bots_detected,
             COUNT(DISTINCT i.country_code)::int AS countries
@@ -148,6 +158,10 @@ def api_kpis(
 
     return {
         "total_failures": summary.get("total_failures", 0),
+        "invalid_users": summary.get("invalid_users", 0),
+        "failed_passwords": summary.get("failed_passwords", 0),
+        "success_passwords": summary.get("success_passwords", 0),
+        "times": summary.get("times", 0),
         "unique_ips": summary.get("unique_ips", 0),
         "bots_detected": summary.get("bots_detected", 0),
         "countries": summary.get("countries", 0),
@@ -202,7 +216,7 @@ def api_top_ips(
     return _fetch(
         f"""
         SELECT
-            e.ip::text AS ip,
+            host(e.ip) AS ip,
             COUNT(*)::int AS failures,
             BOOL_OR(COALESCE(i.is_bot, FALSE)) AS is_bot,
             BOOL_OR(COALESCE(i.is_malicious, FALSE)) AS is_malicious,
@@ -300,7 +314,7 @@ def api_map(
         SELECT
             i.lat,
             i.lon,
-            e.ip::text AS ip,
+            host(e.ip) AS ip,
             COUNT(*)::int AS failures,
             MAX(i.country) AS country,
             MAX(i.city) AS city,
@@ -336,7 +350,7 @@ def api_bots(
     return _fetch(
         f"""
         SELECT
-            i.ip::text AS ip,
+            host(i.ip) AS ip,
             i.country,
             i.country_code,
             i.city,
@@ -370,6 +384,7 @@ def api_events(
     username: Optional[str] = None,
     bots_only: bool = False,
     min_attempts: Optional[int] = Query(default=None, ge=0),
+    scope: str = Query(default="failures", pattern="^(failures|all)$"),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=500),
     sort: str = Query(default="ts", pattern="^(ts|ip|username|event_type)$"),
@@ -377,7 +392,14 @@ def api_events(
 ) -> Dict[str, Any]:
     """Paginated auth events with sorting."""
     where, params = _event_filters(
-        date_from, date_to, country, ip, username, bots_only, min_attempts
+        date_from,
+        date_to,
+        country,
+        ip,
+        username,
+        bots_only,
+        min_attempts,
+        scope=scope,
     )
     offset = (page - 1) * page_size
     sort_col = {
@@ -402,7 +424,7 @@ def api_events(
         SELECT
             e.id,
             e.ts,
-            e.ip::text AS ip,
+            host(e.ip) AS ip,
             e.username,
             e.event_type,
             e.is_invalid_user,
@@ -426,6 +448,162 @@ def api_events(
         "page_size": page_size,
         "total": total,
         "items": items,
+    }
+
+
+def _max_burst(stamps: List[datetime], window_seconds: int = 30) -> int:
+    """Largest number of timestamps inside a sliding window."""
+    if not stamps:
+        return 0
+    ordered = sorted(stamps)
+    left = 0
+    best = 0
+    for right, current in enumerate(ordered):
+        while (current - ordered[left]).total_seconds() > window_seconds:
+            left += 1
+        best = max(best, right - left + 1)
+    return best
+
+
+@app.get("/api/ips")
+def api_ips(
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
+    country: Optional[str] = None,
+    ip: Optional[str] = None,
+    username: Optional[str] = None,
+    bots_only: bool = False,
+    min_attempts: Optional[int] = Query(default=None, ge=0),
+    scope: str = Query(default="all", pattern="^(failures|all)$"),
+    limit: int = Query(default=500, ge=1, le=2000),
+) -> List[Dict[str, Any]]:
+    """List IPs with geo fields and counts by auth outcome."""
+    where, params = _event_filters(
+        date_from, date_to, country, ip, username, bots_only, min_attempts, scope=scope
+    )
+    return _fetch(
+        f"""
+        SELECT
+            host(e.ip) AS ip,
+            COUNT(*)::int AS times,
+            COUNT(*)::int AS failures,
+            COUNT(*) FILTER (WHERE e.event_type = 'invalid_user')::int AS invalid_users,
+            COUNT(*) FILTER (WHERE e.event_type = 'failed_password')::int AS failed_passwords,
+            COUNT(*) FILTER (WHERE e.event_type = 'accepted')::int AS success_passwords,
+            COUNT(DISTINCT NULLIF(e.username, ''))::int AS usernames,
+            MIN(e.ts) AS first_seen,
+            MAX(e.ts) AS last_seen,
+            BOOL_OR(COALESCE(i.is_bot, FALSE)) AS is_bot,
+            BOOL_OR(COALESCE(i.is_malicious, FALSE)) AS is_malicious,
+            MAX(i.country) AS country,
+            MAX(i.country_code) AS country_code,
+            MAX(i.city) AS city,
+            MAX(i.region) AS region,
+            MAX(i.org) AS org,
+            MAX(i.lat) AS lat,
+            MAX(i.lon) AS lon
+        FROM auth_events e
+        LEFT JOIN ip_intel i ON e.ip = i.ip
+        WHERE {where}
+        GROUP BY e.ip
+        ORDER BY times DESC
+        LIMIT %s
+        """,
+        [*params, limit],
+    )
+
+
+@app.get("/api/ip/{ip}")
+def api_ip_detail(ip: str) -> Dict[str, Any]:
+    """Full profile for one IP: geo, burst, users, timeline, recent events."""
+    intel = _fetch_one(
+        """
+        SELECT
+            host(ip) AS ip,
+            country,
+            country_code,
+            city,
+            region,
+            lat,
+            lon,
+            org,
+            is_bot,
+            is_malicious,
+            failed_count,
+            first_seen,
+            last_seen
+        FROM ip_intel
+        WHERE ip = %s::inet
+        """,
+        (ip,),
+    )
+    stamps = _fetch(
+        """
+        SELECT ts
+        FROM auth_events
+        WHERE ip = %s::inet
+          AND event_type IN %s
+        ORDER BY ts
+        """,
+        (ip, FAIL_TYPES),
+    )
+    times: List[datetime] = []
+    for row in stamps:
+        raw_ts = row.get("ts")
+        if isinstance(raw_ts, datetime):
+            times.append(raw_ts)
+        elif isinstance(raw_ts, str):
+            try:
+                times.append(datetime.fromisoformat(raw_ts))
+            except ValueError:
+                continue
+    users = _fetch(
+        """
+        SELECT username, COUNT(*)::int AS failures
+        FROM auth_events
+        WHERE ip = %s::inet
+          AND event_type IN %s
+          AND username <> ''
+        GROUP BY username
+        ORDER BY failures DESC
+        LIMIT 20
+        """,
+        (ip, FAIL_TYPES),
+    )
+    timeline = _fetch(
+        """
+        SELECT date_trunc('hour', ts) AS bucket, COUNT(*)::int AS failures
+        FROM auth_events
+        WHERE ip = %s::inet
+          AND event_type IN %s
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        (ip, FAIL_TYPES),
+    )
+    events = _fetch(
+        """
+        SELECT ts, username, event_type, is_invalid_user, port, source_file
+        FROM auth_events
+        WHERE ip = %s::inet
+        ORDER BY ts DESC
+        LIMIT 40
+        """,
+        (ip,),
+    )
+    if not intel and not times and not events:
+        raise HTTPException(status_code=404, detail="IP not found")
+    return {
+        "ip": ip,
+        "geo": intel or {"ip": ip, "lat": None, "lon": None},
+        "failures": len(times),
+        "max_burst": _max_burst(times, 30),
+        "burst_window_seconds": 30,
+        "first_seen": min(times).isoformat() if times else None,
+        "last_seen": max(times).isoformat() if times else None,
+        "users": users,
+        "timeline": timeline,
+        "events": events,
     }
 
 
