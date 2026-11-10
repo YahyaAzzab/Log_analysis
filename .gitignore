@@ -1,0 +1,11 @@
+.DS_Store
+.cursor/
+__pycache__/
+*.py[cod]
+.venv/
+.env
+
+log_analysis/logs/*.log
+log_analysis/storage/country_cache.json
+log_analysis/storage/evenements.csv
+log_analysis/data/
